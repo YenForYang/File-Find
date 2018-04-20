@@ -127,15 +127,7 @@ our($dir, $name, $fullname, $prune);
 sub _find_dir_symlnk($$$);
 sub _find_dir($$$);
 
-# check whether or not a scalar variable is tainted
-# (code straight from the Camel, 3rd ed., page 561)
-sub is_tainted_pp {
-	my $arg = shift;
-	my $nada = substr($arg, 0, 0); # zero-length
-	local $@;
-	eval { eval "# $nada" };
-	return length($@) != 0;
-}
+# ASSUME NO TAINT #
 
 sub _find_opt {
 	my $wanted = shift;
@@ -152,35 +144,35 @@ sub _find_opt {
 	local($dir, $name, $fullname, $prune);
 	local *_ = \my $a;
 
-	my $cwd            = $wanted->{bydepth} ? Cwd::fastcwd() : Cwd::getcwd();
-	if ($Is_VMS) {
-		# VMS returns this by default in VMS format which just doesn't
-		# work for the rest of this module.
-		$cwd = VMS::Filespec::unixpath($cwd);
-
-		# Apparently this is not expected to have a trailing space.
-		# To attempt to make VMS/UNIX conversions mostly reversible,
-		# a trailing slash is needed.  The run-time functions ignore the
-		# resulting double slash, but it causes the perl tests to fail.
-		$cwd =~ s#/\z##;
-
-		# This comes up in upper case now, but should be lower.
-		# In the future this could be exact case, no need to change.
-	}
-	my $cwd_untainted  = $cwd;
-	my $check_t_cwd    = 1;
+	my $cwd = do { # ryfastcwd_linux()
+		my($odev, $oino, $cdev, $cino, $tdev, $tino, $path);
+		($cdev,$cino) = stat '.';
+		while (
+			($odev, $oino) = ($cdev, $cino),
+			chdir '..',
+			($cdev, $cino) = stat '.',
+			$oino != $cino || $odev != $cdev
+		) {
+			opendir DIRHANDLEfcwd, '.' or return;
+			while (readdir DIRHANDLEfcwd) {
+				$_ eq '.' or $_ eq '..' and next;
+				($tdev, $tino) = lstat;
+				$tino == $oino && $tdev == $odev
+					and substr($path, 0, 0) = '/'.$_ and closedir DIRHANDLEfcwd;
+			}
+		}
+		chdir $path;
+		$path;
+	};
+	
 	$wanted_callback   = $wanted->{wanted};
 	$bydepth           = $wanted->{bydepth};
 	$pre_process       = $wanted->{preprocess};
 	$post_process      = $wanted->{postprocess};
 	$no_chdir          = $wanted->{no_chdir};
-	$full_check        = $Is_Win32 ? 0 : $wanted->{follow};
-	$follow            = $Is_Win32 ? 0 :
-							 $full_check || $wanted->{follow_fast};
+	$full_check        = $wanted->{follow};
+	$follow            = $full_check || $wanted->{follow_fast};
 	$follow_skip       = $wanted->{follow_skip};
-	$untaint           = $wanted->{untaint};
-	$untaint_pat       = $wanted->{untaint_pattern};
-	$untaint_skip      = $wanted->{untaint_skip};
 	$dangling_symlinks = $wanted->{dangling_symlinks};
 
 	# for compatibility reasons (find.pl, find2perl)
@@ -192,9 +184,8 @@ sub _find_opt {
 	my ($abs_dir, $Is_Dir);
 
 	Proc_Top_Item:
-	foreach my $TOP (@_) {
+	for my $TOP (@_) {
 		my $top_item = $TOP;
-		$top_item = VMS::Filespec::unixify($top_item) if $Is_VMS;
 
 		($topdev,$topino,$topmode,$topnlink) = $follow ? stat $top_item : lstat $top_item;
 
