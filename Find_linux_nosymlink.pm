@@ -30,8 +30,8 @@ sub _find_opt {
 	# This function must local()ize everything because callbacks may
 	# call us again
 
-	local (%SLnkSeen,
-		$wanted_callback, $avoid_nlink, $bydepth, $no_chdir,
+	local (%SLnkSeen, %skipit,
+		$wanted_cb, $bydepth, $no_chdir,
         $follow_skip, $pre_process, $post_process, $dangling_symlinks,
 		$dir, $name, $fullname, $prune);
     local *_ = \my $a;
@@ -165,9 +165,6 @@ sub _find_dir($$$) {
 		@filenames = $pre_process->(@filenames)	if $pre_process;
 		push @Stack, [$CdLvl,$dir_name,'',-2]	if $post_process;
 
-		# if dir has wrong nlink count, force switch to slower stat method
-		++$no_nlink if $nlink < 2;
-
 		if ($nlink == 2 && !$no_nlink) {
 			# This dir has no subdirectories.
 			for my $FN (@filenames) {
@@ -177,6 +174,10 @@ sub _find_dir($$$) {
 				$wanted_cb->();
 			}
 		} else {
+
+			# if dir has wrong nlink count, force switch to slower stat method
+			++$no_nlink if $nlink < 2;
+
 			# This dir has subdirectories.
 			$subcount = $nlink - 2;
 
@@ -213,10 +214,10 @@ sub _find_dir($$$) {
 	} continue {
 		while ( defined ($SE = pop @Stack) ) {
 			($Level, $p_dir, $dir_rel, $nlink) = @$SE;
-
-				chdir( my $tmp = join '/', ('..') x ($CdLvl-$Level) )
+				my $tmp;
+				chdir( $tmp = join '/', ('..') x ($CdLvl-$Level) )
 					|| die 'Cant cd to ', $tmp, ' from ', $dir_name,': ',$!
-					and $CdLvl = $Level
+						and $CdLvl = $Level
 			if $CdLvl > $Level && !$no_chdir;
 
 			$dir_pref = ( $dir_name = $p_dir eq '/' ? '/'.$dir_rel : $p_dir.'/'.$dir_rel ) . '/';
@@ -233,7 +234,7 @@ sub _find_dir($$$) {
 				$_ = $no_chdir ? $dir_name : $dir_rel;
 				substr($_, length($_) == 2 ? -1 : -2) = '' if substr($_,-2) eq '/.';
 
-				$wanted_callback->();
+				$wanted_cb->();
 			} else {
 				push @Stack, [$CdLvl,$p_dir,$dir_rel,-1] if $bydepth;
 				last;
