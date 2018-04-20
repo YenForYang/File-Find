@@ -137,12 +137,12 @@ sub _find_opt {
 	# This function must local()ize everything because callbacks may
 	# call find() or finddepth()
 
-	local %SLnkSeen;
-	local ($wanted_callback, $avoid_nlink, $bydepth, $no_chdir, $follow,
-		$follow_skip, $full_check, $untaint, $untaint_skip, $untaint_pat,
-		$pre_process, $post_process, $dangling_symlinks);
-	local($dir, $name, $fullname, $prune);
-	local *_ = \my $a;
+	local (%SLnkSeen,
+		$wanted_callback, $avoid_nlink, $bydepth, $no_chdir, $follow,
+        $follow_skip, $full_check, $untaint, $untaint_skip, $untaint_pat,
+        $pre_process, $post_process, $dangling_symlinks,
+		$dir, $name, $fullname, $prune);
+    local *_ = \my $a;
 
 	my $cwd = do { # ryfastcwd_linux()
 		my($odev, $oino, $cdev, $cino, $tdev, $tino, $path);
@@ -164,7 +164,7 @@ sub _find_opt {
 		chdir $path;
 		$path;
 	};
-	
+
 	$wanted_callback   = $wanted->{wanted};
 	$bydepth           = $wanted->{bydepth};
 	$pre_process       = $wanted->{preprocess};
