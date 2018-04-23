@@ -20,9 +20,9 @@ our (
 );
 %skipit = ('.',1,'..',1);
 
-sub _find_opt {
+sub find {
     my $wanted = shift;
-    die "invalid top directory" unless $_[0];
+    die 'invalid top directory' unless $_[0];
 
     # This function must local()ize everything because callbacks may call us again
 
@@ -142,7 +142,6 @@ sub _find_opt {
 					# HACK: insert directories at this position, so as to preserve
 					# the user pre-processed ordering of files (thus ensuring
 					# directory traversal is in user sorted order, not at random).
-					my $stack_top = @Stack;
 
 					for my $FN (@filenames) {
 						next if $skipit{$FN};
@@ -151,17 +150,21 @@ sub _find_opt {
 						( $subcount > 0 || $topnlink < 2 # if dir has wrong nlink count, force switch to slower stat method
 								and ( (lstat($no_chdir ? $dir_pref . $FN : $FN))[2] & 61440 ) == 16384 ) # S_IFMT assumed to be 61440, S_IFDIR = 16384;
 
-							and splice(@Stack, $stack_top, 0, [ $CdLvl,$dir_name,$FN,(lstat _)[3] ]) || --$subcount;
-								#HACKS: replace push to preserve dir traversal order; use 'or' as splice returns undef here.
-						$name = $dir_pref . $FN; # $File::Find::name
-						$_= $no_chdir ? $name : $FN; # $_
+							and splice(@Stack, @Stack, 0, [ $CdLvl,$dir_name,$FN,(lstat _)[3] ]) || --$subcount;
+								# HACKS:
+								# replace push to preserve dir traversal order;
+								# use '||' to connect splice and decrement as splice returns undef here.
+								# set splice offset = @Stack ($stack_top) to insert directories at this position, so as to preserve
+								# the user pre-processed ordering of files (thus ensuring directory traversal is in user sorted order (not random).
+						$name = $dir_pref . $FN; 	# $File::Find::name
+						$_= $no_chdir ? $name : $FN;# $_
 						$wanted_callback->();
 					}
 				}
 			} continue {
 				while ( defined ($SE = pop @Stack) ) {
 					($Level, $p_dir, $dir_rel, $nlink) = @$SE;
-					chdir( $tmp = join '/', ('..') x ($CdLvl-$Level) )
+						chdir( $tmp = join '/', ('..') x ($CdLvl-$Level) )
 							|| die 'Cant cd to ', $tmp, ' from ', $dir_name,': ',$!
 								and $CdLvl = $Level
 					if $CdLvl > $Level && !$no_chdir;
@@ -193,7 +196,7 @@ sub _find_opt {
 				or	(	$dir = substr($_=$TOP, 0, rindex($TOP, '/')+1, '') || './'	and $topdir = $dir	);
 
 			$no_chdir || chdir $topdir
-				or warn 'Couldnt chdir ',$topdir,': ',$! and next Proc_Top_Item;
+				or warn 'Couldnt chdir ',$topdir,': ',$! and next;
 
 			$name = $topdir . $_;
 			$_ = $name if $no_chdir;
