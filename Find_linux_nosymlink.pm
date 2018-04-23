@@ -6,8 +6,6 @@ use strict;
 # refuses to operate on lexicals
 
 our (
-	%SLnkSeen,
-
 	$wanted_callback, $bydepth, $no_chdir,
 	$follow_skip, $full_check,
 	$pre_process, $post_process, $dangling_symlinks,
@@ -27,7 +25,6 @@ sub find {
     # This function must local()ize everything because callbacks may call us again
 
     local(
-		%SLnkSeen,
 		$wanted_callback, $bydepth, $no_chdir,
         $follow_skip,
         $pre_process, $post_process, $dangling_symlinks,
