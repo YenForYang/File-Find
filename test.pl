@@ -1,7 +1,6 @@
 #!/usr/bin/perl
 
-use strict;
-
+use v5.26;
 require '/mnt/c/Github/File-Find/Find_linux_nosymlink.pm';
 
-File::Find::_find_opt({ wanted => sub {print $_} }, '.');
+File::Find::_find_opt({ wanted => sub {say $_} }, '.');
